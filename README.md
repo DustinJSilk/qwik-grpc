@@ -11,6 +11,8 @@ pnpm add @bufbuild/buf @bufbuild/protobuf @bufbuild/protoc-gen-es
 pnpm add @connectrpc/connect @connectrpc/connect-web
 ```
 
+> You must also have installed the [buf CLI](https://buf.build/docs/cli/quickstart/)
+
 Add the qwikGrpc Vite plugin to your vite.config.ts:
 
 ```ts
@@ -88,6 +90,9 @@ qwikGrpc({
 
   // Path to generate Connect clients. Default to "src/.qwik-grpc"
   outDir?: string;
+
+  // Pass any flags to the `buf generate` command. eg: "--debug --version --config"
+  bufFlags?: string;
 })
 ```
 

@@ -9,6 +9,9 @@ interface QwikGrpcOptions {
 
   // Path to generate Connect clients. Default to "src/.qwik-grpc"
   outDir?: string;
+
+  // Pass any flags to the `buf generate` command. eg: "--debug --version"
+  bufFlags?: string;
 }
 
 interface Service {
@@ -57,7 +60,11 @@ function findBufGenTemplate(protoPath: string, outDir: string): string {
 }
 
 // Run buf generate and return all generated *_connect.ts files.
-function runBufGenerate(protoPath: string, outDir: string): string[] {
+function runBufGenerate(
+  protoPath: string,
+  outDir: string,
+  flags: string
+): string[] {
   fs.mkdirSync(outDir, { recursive: true });
   const bufGenContent = findBufGenTemplate(protoPath, outDir);
 
@@ -66,7 +73,7 @@ function runBufGenerate(protoPath: string, outDir: string): string[] {
   fs.writeFileSync(tmpPath, bufGenContent, "utf8");
 
   try {
-    execSync(`buf generate ${protoPath} --template ${tmpPath}`, {
+    execSync(`buf generate ${protoPath} --template ${tmpPath} ${flags}`, {
       stdio: "inherit",
     });
   } catch (err) {
@@ -164,13 +171,17 @@ function generateClientsFile(outDir: string, services: Service[]) {
 }
 
 export function qwikGrpc(options?: QwikGrpcOptions): Plugin {
-  const { protoPath = "proto", outDir = "src/.qwik-grpc" } = options || {};
+  const {
+    protoPath = "proto",
+    outDir = "src/.qwik-grpc",
+    bufFlags = "",
+  } = options || {};
 
   let isFirstBuild = true;
 
   function generate() {
     fs.rmdirSync(outDir, { recursive: true });
-    const generatedFiles = runBufGenerate(protoPath, outDir);
+    const generatedFiles = runBufGenerate(protoPath, outDir, bufFlags);
     const services = getServices(outDir, generatedFiles);
     generateClientsFile(outDir, services);
   }
