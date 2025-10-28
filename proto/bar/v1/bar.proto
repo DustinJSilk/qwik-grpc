@@ -1,0 +1,13 @@
+syntax = "proto3";
+
+service BarService {
+  rpc Say(BarSayRequest) returns (BarSayResponse) {}
+}
+
+message BarSayRequest {
+  string sentence = 1;
+}
+
+message BarSayResponse {
+  string sentence = 2;
+}
