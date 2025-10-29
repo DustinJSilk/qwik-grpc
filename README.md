@@ -11,8 +11,6 @@ pnpm add @bufbuild/buf @bufbuild/protobuf @bufbuild/protoc-gen-es
 pnpm add @connectrpc/connect @connectrpc/connect-web
 ```
 
-> You must also have installed the [buf CLI](https://buf.build/docs/cli/quickstart/)
-
 Add the qwikGrpc Vite plugin to your vite.config.ts:
 
 ```ts

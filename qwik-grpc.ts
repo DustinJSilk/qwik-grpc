@@ -74,7 +74,7 @@ function runBufGenerate(
   fs.writeFileSync(tmpPath, bufGenContent, "utf8");
 
   try {
-    execSync(`buf generate ${protoPath} --template ${tmpPath} ${flags}`, {
+    execSync(`npx buf generate ${protoPath} --template ${tmpPath} ${flags}`, {
       stdio: "inherit",
     });
   } catch (err) {
