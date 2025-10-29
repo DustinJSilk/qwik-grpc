@@ -12,6 +12,10 @@ interface QwikGrpcOptions {
 
   // Pass any flags to the `buf generate` command. eg: "--debug --version"
   bufFlags?: string;
+
+  // Cleans the generated files before regenerating. Use this in place of the buf.build flag --clean.
+  // Default: true
+  clean?: boolean;
 }
 
 interface Service {
@@ -23,9 +27,6 @@ interface Service {
 
   // FooService
   serviceName: string;
-
-  // fooClient
-  clientName: string;
 
   // outDir/foo/v1/foo_pb.ts
   path: string;
@@ -59,7 +60,7 @@ function findBufGenTemplate(protoPath: string, outDir: string): string {
   return defaultBufGenYaml(outDir);
 }
 
-// Run buf generate and return all generated *_connect.ts files.
+// Run buf generate and return all generated *_pb.ts files.
 function runBufGenerate(
   protoPath: string,
   outDir: string,
@@ -113,8 +114,8 @@ function getServices(outDir: string, files: string[]): Service[] {
       }
 
       const name = match[1]; // e.g. "Foo"
-      const instanceName = name[0].toLowerCase() + name.slice(1);
-      const serviceName = `${name}Service`;
+      const instanceName = name[0].toLowerCase() + name.slice(1); // e.g. "foo"
+      const serviceName = `${name}Service`; // e.g. "FooService"
       const relPath =
         "./" +
         path
@@ -122,13 +123,9 @@ function getServices(outDir: string, files: string[]): Service[] {
           .replace(/\\/g, "/")
           .replace(/\.ts$/, "");
 
-      // Lowercase the first letter for short name (e.g. Foo → foo)
-      const clientName =
-        serviceName.charAt(0).toLowerCase() + serviceName.slice(1);
-
-      return { serviceName, clientName, name, instanceName, path: relPath };
+      return { serviceName, name, instanceName, path: relPath };
     })
-    .filter((s): s is Service => !!s); // filter out nulls
+    .filter((s): s is Service => !!s);
 }
 
 // Generates the client.ts file which registers the clients
@@ -175,12 +172,16 @@ export function qwikGrpc(options?: QwikGrpcOptions): Plugin {
     protoPath = "proto",
     outDir = "src/.qwik-grpc",
     bufFlags = "",
+    clean = true,
   } = options || {};
 
   let isFirstBuild = true;
 
   function generate() {
-    fs.rmdirSync(outDir, { recursive: true });
+    if (clean) {
+      fs.rmdirSync(outDir, { recursive: true });
+    }
+
     const generatedFiles = runBufGenerate(protoPath, outDir, bufFlags);
     const services = getServices(outDir, generatedFiles);
     generateClientsFile(outDir, services);
@@ -216,6 +217,7 @@ export function qwikGrpc(options?: QwikGrpcOptions): Plugin {
         }
 
         if (["add", "change", "unlink"].includes(event)) {
+          // Debounce to avoide unecessary rebuilds
           if (regenTimer) {
             clearTimeout(regenTimer);
           }

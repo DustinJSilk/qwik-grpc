@@ -26,6 +26,14 @@ export default defineConfig(({ command, mode }): UserConfig => {
 });
 ```
 
+Add the generated .qwik-grpc folder to your .gitignore
+
+```
+src/.qwik-grpc
+```
+
+> If you don't want to generate the qwik-grpc files into your `src/` folder, you can change the `outDir` option in the qwikGrpc() vite.config.ts plugin to an external folde such as node_module/.vite/qwik-grpc. You will need to edit your tsconfig.json file to include the folder in your TypeScript project.
+
 Register your gRPC clients in a plugin file `src/plugin@grpc.ts`:
 
 ```ts
