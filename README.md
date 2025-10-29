@@ -32,7 +32,7 @@ Add the generated .qwik-grpc folder to your .gitignore
 src/.qwik-grpc
 ```
 
-> If you don't want to generate the qwik-grpc files into your `src/` folder, you can change the `outDir` option in the qwikGrpc() vite.config.ts plugin to an external folde such as node_module/.vite/qwik-grpc. You will need to edit your tsconfig.json file to include the folder in your TypeScript project.
+> If you don't want to generate the qwik-grpc files into your `src/` folder, you can change the `outDir` option in the qwikGrpc() vite.config.ts plugin to an external folder such as node_module/.vite/qwik-grpc. You will need to edit your tsconfig.json file to include the folder in your TypeScript project.
 
 Register your gRPC clients in a plugin file `src/plugin@grpc.ts`:
 
@@ -42,16 +42,19 @@ import { Interceptor } from "@connectrpc/connect";
 import { createConnectTransport } from "@connectrpc/connect-web";
 import { registerGrpcClients } from "~/.qwik-grpc/clients";
 
-// OPTIONAL: Add an auth interceptor to capture tokens from the Qwik RequestEvent which can be passed to the gRPC server
+// OPTIONAL: Add an auth interceptor to capture tokens from the Qwik RequestEvent
+// which can be passed to the gRPC server
 function authInterceptor(ev: RequestEvent): Interceptor {
   return (next) => async (req) => {
-    const someAuthToken = "authenticate(ev)";
-    req.header.set("authorization", `Bearer ${someAuthToken}`);
+    const token = ev.headers.get("authorization");
+    if (token) {
+      req.header.set("authorization", token);
+    }
     return next(req);
   };
 }
 
-// OPTIONAL: Add a trace interceptor to pass reuse an existing traceparent ID
+// OPTIONAL: Add a trace interceptor to use an existing traceparent ID
 function traceInterceptor(ev: RequestEvent): Interceptor {
   return (next) => async (req) => {
     const traceparent = ev.request.headers.get("traceparent");
@@ -101,6 +104,10 @@ qwikGrpc({
 
   // Pass any flags to the `buf generate` command. eg: "--debug --version --config"
   bufFlags?: string;
+
+  // Cleans the generated files before regenerating. Use this in place of the buf.build flag --clean.
+  // Default: true
+  clean?: boolean;
 })
 ```
 

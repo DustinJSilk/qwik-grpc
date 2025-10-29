@@ -5,8 +5,10 @@ import { registerGrpcClients } from "~/.qwik-grpc/clients";
 
 function authInterceptor(ev: RequestEvent): Interceptor {
   return (next) => async (req) => {
-    const someAuthToken = "authenticate(ev)";
-    req.header.set("authorization", `Bearer ${someAuthToken}`);
+    const token = ev.headers.get("authorization");
+    if (token) {
+      req.header.set("authorization", token);
+    }
     return next(req);
   };
 }
