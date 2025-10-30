@@ -163,11 +163,32 @@ async function generateClientsFile(outDir: string, services: Service[]) {
       ${services.map((s, i) => `${s.instanceName}: Client<typeof ${s.serviceName}>`).join("\n")}
     }
   `;
+
   const factory = `
+    class ClientFactory {
+      private clients: GrpcClients = {} as GrpcClients;
+      private transport: Transport;
+
+      constructor(transport: Transport) {
+        this.transport = transport;
+      }
+
+      ${services
+        .map(
+          (s, i) => `get ${s.instanceName}() {
+        if (!this.clients.${s.instanceName}) {
+          this.clients.${s.instanceName} = createClient(${s.serviceName}, this.transport);
+        }
+        return this.clients.${s.instanceName};
+      }`
+        )
+        .join("\n\n")}
+    }
+  `;
+
+  const register = `
     export function registerGrpcClients(transport: Transport, ev: RequestEventBase) {
-      ev.sharedMap.set('qwik-grpc-clients', {
-        ${services.map((s, i) => `${s.instanceName}: createClient(${s.serviceName}, transport)`).join(",\n")}
-      })
+      ev.sharedMap.set("qwik-grpc-clients", new ClientFactory(transport));
     }
   `;
 
@@ -179,12 +200,17 @@ async function generateClientsFile(outDir: string, services: Service[]) {
 
   const data = `
     ${imports}
-    ${factory}
     ${interfaces}
+    ${factory}
+    ${register}
     ${getter}
   `;
 
   await fs.writeFile(path.join(outDir, "clients.ts"), data, "utf8");
+
+  try {
+    await execAsync(`npx prettier --write ${outDir}/clients.ts`);
+  } catch {}
 }
 
 export function qwikGrpc(options?: QwikGrpcOptions): Plugin {
