@@ -221,7 +221,7 @@ export function qwikGrpc(options?: QwikGrpcOptions): Plugin {
     clean = true,
   } = options || {};
 
-  let isFirstBuild = true;
+  let isGenerated = false;
 
   async function generate() {
     if (clean) {
@@ -237,9 +237,9 @@ export function qwikGrpc(options?: QwikGrpcOptions): Plugin {
     name: "vite-plugin-qwik-grpc",
     enforce: "pre",
 
-    async buildStart() {
-      if (isFirstBuild) {
-        isFirstBuild = false;
+    async configResolved() {
+      if (!isGenerated) {
+        isGenerated = true;
         await generate();
       }
     },
