@@ -10,7 +10,7 @@ import type { Message } from "@bufbuild/protobuf";
  * Describes the file bar/v1/bar.proto.
  */
 export const file_bar_v1_bar: GenFile = /*@__PURE__*/
-  fileDesc("ChBiYXIvdjEvYmFyLnByb3RvIiEKDUJhclNheVJlcXVlc3QSEAoIc2VudGVuY2UYASABKAkiIgoOQmFyU2F5UmVzcG9uc2USEAoIc2VudGVuY2UYAiABKAkyNgoKQmFyU2VydmljZRIoCgNTYXkSDi5CYXJTYXlSZXF1ZXN0Gg8uQmFyU2F5UmVzcG9uc2UiAGIGcHJvdG8z");
+  fileDesc("ChBiYXIvdjEvYmFyLnByb3RvIiEKDUJhclNheVJlcXVlc3QSEAoIc2VudGVuY2UYASABKAkiIgoOQmFyU2F5UmVzcG9uc2USEAoIc2VudGVuY2UYASABKAkyNgoKQmFyU2VydmljZRIoCgNTYXkSDi5CYXJTYXlSZXF1ZXN0Gg8uQmFyU2F5UmVzcG9uc2UiAGIGcHJvdG8z");
 
 /**
  * @generated from message BarSayRequest
@@ -34,7 +34,7 @@ export const BarSayRequestSchema: GenMessage<BarSayRequest> = /*@__PURE__*/
  */
 export type BarSayResponse = Message<"BarSayResponse"> & {
   /**
-   * @generated from field: string sentence = 2;
+   * @generated from field: string sentence = 1;
    */
   sentence: string;
 };

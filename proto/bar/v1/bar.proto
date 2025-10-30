@@ -9,5 +9,5 @@ message BarSayRequest {
 }
 
 message BarSayResponse {
-  string sentence = 2;
+  string sentence = 1;
 }

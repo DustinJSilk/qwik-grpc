@@ -1,7 +1,10 @@
 import { Plugin } from "vite";
-import { execSync } from "child_process";
-import fs from "fs";
+import { exec } from "child_process";
+import { promises as fs } from "fs";
 import path from "path";
+import { promisify } from "util";
+
+const execAsync = promisify(exec);
 
 interface QwikGrpcOptions {
   // Path to folder of .proto files. Defaults to ./proto
@@ -45,15 +48,21 @@ plugins:
 }
 
 // Locate a buf.gen template, preferring project root, then proto folder.
-function findBufGenTemplate(protoPath: string, outDir: string): string {
+async function findBufGenTemplate(
+  protoPath: string,
+  outDir: string
+): Promise<string> {
   const candidates = ["buf.gen.yaml", "buf.gen.yml", "buf.gen.json"].flatMap(
     (name) => [path.join(process.cwd(), name), path.join(protoPath, name)]
   );
 
   for (const file of candidates) {
-    if (fs.existsSync(file)) {
+    try {
+      const found = await fs.readFile(file, "utf8");
       console.log(`[qwikGrpc] Using ${path.relative(process.cwd(), file)}`);
-      return fs.readFileSync(file, "utf8");
+      return found;
+    } catch {
+      // Ignore files that aren't found
     }
   }
 
@@ -61,75 +70,86 @@ function findBufGenTemplate(protoPath: string, outDir: string): string {
 }
 
 // Run buf generate and return all generated *_pb.ts files.
-function runBufGenerate(
+async function runBufGenerate(
   protoPath: string,
   outDir: string,
   flags: string
-): string[] {
-  fs.mkdirSync(outDir, { recursive: true });
-  const bufGenContent = findBufGenTemplate(protoPath, outDir);
+): Promise<string[]> {
+  await fs.mkdir(outDir, { recursive: true });
+
+  const bufGenContent = await findBufGenTemplate(protoPath, outDir);
 
   // Save the template temporarily (buf CLI doesn’t support inline YAML well)
   const tmpPath = path.join(outDir, "buf.gen.tmp.yaml");
-  fs.writeFileSync(tmpPath, bufGenContent, "utf8");
 
+  await fs.writeFile(tmpPath, bufGenContent, { encoding: "utf8" });
   try {
-    execSync(`npx buf generate ${protoPath} --template ${tmpPath} ${flags}`, {
-      stdio: "inherit",
-    });
+    await execAsync(
+      `npx buf generate ${protoPath} --template ${tmpPath} ${flags}`
+    );
   } catch (err) {
     console.error("[qwikGrpc] buf generate failed:", err);
     throw err;
   } finally {
-    fs.unlinkSync(tmpPath);
+    await fs.unlink(tmpPath);
   }
 
   const files: string[] = [];
-  const walk = (dir: string) => {
-    for (const entry of fs.readdirSync(dir)) {
+
+  const walk = async (dir: string) => {
+    const entries = await fs.readdir(dir);
+
+    for (const entry of entries) {
       const full = path.join(dir, entry);
-      const stat = fs.statSync(full);
-      if (stat.isDirectory()) walk(full);
-      else if (entry.endsWith("_pb.ts")) files.push(full);
+      const stat = await fs.stat(full);
+
+      if (stat.isDirectory()) {
+        await walk(full);
+      } else if (entry.endsWith("_pb.ts")) {
+        files.push(full);
+      }
     }
   };
-  walk(outDir);
+  await walk(outDir);
 
   return files;
 }
 
 // Creates a list of Services by reading the generated clients
-function getServices(outDir: string, files: string[]): Service[] {
-  return files
-    .map((filePath) => {
-      const fileContent = fs.readFileSync(filePath, "utf8");
+async function getServices(
+  outDir: string,
+  files: string[]
+): Promise<Service[]> {
+  const services: Service[] = [];
 
-      // Match pattern: export const FooService: GenService<...
-      const match = fileContent.match(
-        /export\s+const\s+(\w+)Service\s*:\s*GenService\s*</
-      );
-      if (!match) {
-        console.warn(`[qwikGrpc] No service export found in ${filePath}`);
-        return null;
-      }
+  for (const filePath of files) {
+    const fileContent = await fs.readFile(filePath, "utf8");
 
-      const name = match[1]; // e.g. "Foo"
-      const instanceName = name[0].toLowerCase() + name.slice(1); // e.g. "foo"
-      const serviceName = `${name}Service`; // e.g. "FooService"
-      const relPath =
-        "./" +
-        path
-          .relative(outDir, filePath)
-          .replace(/\\/g, "/")
-          .replace(/\.ts$/, "");
+    // Match pattern: export const FooService: GenService<...
+    const match = fileContent.match(
+      /export\s+const\s+(\w+)Service\s*:\s*GenService\s*</
+    );
 
-      return { serviceName, name, instanceName, path: relPath };
-    })
-    .filter((s): s is Service => !!s);
+    if (!match) {
+      console.warn(`[qwikGrpc] No service export found in ${filePath}`);
+      continue;
+    }
+
+    const name = match[1]; // e.g. "Foo"
+    const instanceName = name[0].toLowerCase() + name.slice(1); // e.g. "foo"
+    const serviceName = `${name}Service`; // e.g. "FooService"
+    const relPath =
+      "./" +
+      path.relative(outDir, filePath).replace(/\\/g, "/").replace(/\.ts$/, "");
+
+    services.push({ serviceName, name, instanceName, path: relPath });
+  }
+
+  return services;
 }
 
 // Generates the client.ts file which registers the clients
-function generateClientsFile(outDir: string, services: Service[]) {
+async function generateClientsFile(outDir: string, services: Service[]) {
   const imports = [
     `import { RequestEventBase } from "@builder.io/qwik-city";`,
     `import { createClient, Transport, Client } from "@connectrpc/connect";`,
@@ -164,7 +184,7 @@ function generateClientsFile(outDir: string, services: Service[]) {
     ${getter}
   `;
 
-  fs.writeFileSync(path.join(outDir, "clients.ts"), data, "utf8");
+  await fs.writeFile(path.join(outDir, "clients.ts"), data, "utf8");
 }
 
 export function qwikGrpc(options?: QwikGrpcOptions): Plugin {
@@ -177,24 +197,24 @@ export function qwikGrpc(options?: QwikGrpcOptions): Plugin {
 
   let isFirstBuild = true;
 
-  function generate() {
+  async function generate() {
     if (clean) {
-      fs.rmdirSync(outDir, { recursive: true });
+      await fs.rm(outDir, { recursive: true, force: true });
     }
 
-    const generatedFiles = runBufGenerate(protoPath, outDir, bufFlags);
-    const services = getServices(outDir, generatedFiles);
-    generateClientsFile(outDir, services);
+    const generatedFiles = await runBufGenerate(protoPath, outDir, bufFlags);
+    const services = await getServices(outDir, generatedFiles);
+    await generateClientsFile(outDir, services);
   }
 
   return {
     name: "vite-plugin-qwik-grpc",
     enforce: "pre",
 
-    buildStart() {
+    async buildStart() {
       if (isFirstBuild) {
         isFirstBuild = false;
-        generate();
+        await generate();
       }
     },
 
@@ -222,8 +242,8 @@ export function qwikGrpc(options?: QwikGrpcOptions): Plugin {
             clearTimeout(regenTimer);
           }
 
-          regenTimer = setTimeout(() => {
-            generate();
+          regenTimer = setTimeout(async () => {
+            await generate();
             server.ws.send({ type: "full-reload" });
           }, 100);
         }
