@@ -1,7 +1,7 @@
 import type { RequestEvent, RequestHandler } from "@builder.io/qwik-city";
 import { Interceptor } from "@connectrpc/connect";
 import { createConnectTransport } from "@connectrpc/connect-web";
-import { registerGrpcClients } from "~/.qwik-grpc/clients";
+import { registerGrpcClients } from "~/.grpc/clients";
 
 function authInterceptor(ev: RequestEvent): Interceptor {
   return (next) => async (req) => {

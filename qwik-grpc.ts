@@ -10,7 +10,7 @@ interface QwikGrpcOptions {
   // Path to folder of .proto files. Defaults to ./proto
   protoPath?: string;
 
-  // Path to generate Connect clients. Default to "src/.qwik-grpc"
+  // Path to generate Connect clients. Default to "src/.grpc"
   outDir?: string;
 
   // Pass any flags to the `buf generate` command. eg: "--debug --version"
@@ -159,64 +159,58 @@ async function generateClientsFile(outDir: string, services: Service[]) {
   ].join("\n");
 
   const interfaces = `
-    interface GrpcClients {
-      ${services.map((s, i) => `${s.instanceName}: Client<typeof ${s.serviceName}>`).join("\n")}
-    }
-  `;
+interface GrpcClients {
+  ${services.map((s, i) => `${s.instanceName}: Client<typeof ${s.serviceName}>`).join("\n  ")}
+}`;
 
   const factory = `
-    class ClientFactory {
-      private clients: GrpcClients = {} as GrpcClients;
-      private transport: Transport;
+class ClientFactory {
+  private clients: GrpcClients = {} as GrpcClients;
+  private transport: Transport;
 
-      constructor(transport: Transport) {
-        this.transport = transport;
-      }
+  constructor(transport: Transport) {
+    this.transport = transport;
+  }
 
-      ${services
-        .map(
-          (s, i) => `get ${s.instanceName}() {
-        if (!this.clients.${s.instanceName}) {
-          this.clients.${s.instanceName} = createClient(${s.serviceName}, this.transport);
-        }
-        return this.clients.${s.instanceName};
-      }`
-        )
-        .join("\n\n")}
+  ${services
+      .map(
+        (s, i) => `get ${s.instanceName}() {
+    if (!this.clients.${s.instanceName}) {
+      this.clients.${s.instanceName} = createClient(${s.serviceName}, this.transport);
     }
-  `;
+    return this.clients.${s.instanceName};
+  }`
+      )
+      .join("\n\n")}
+}`;
 
   const register = `
-    export function registerGrpcClients(transport: Transport, ev: RequestEventBase) {
-      ev.sharedMap.set("qwik-grpc-clients", new ClientFactory(transport));
-    }
-  `;
+export function registerGrpcClients(transport: Transport, ev: RequestEventBase) {
+  (ev as any).grpc = new ClientFactory(transport);
+}`;
 
-  const getter = `
-    export function grpc(ev: RequestEventBase): GrpcClients {
-      return ev.sharedMap.get('qwik-grpc-clients')
-    }
-  `;
+  const declare = `
+declare module "@builder.io/qwik-city" {
+  interface RequestEventBase {
+    grpc: GrpcClients;
+  }
+}`;
 
-  const data = `
-    ${imports}
-    ${interfaces}
-    ${factory}
-    ${register}
-    ${getter}
-  `;
+  const clients = `
+${imports}
+${interfaces}
+${factory}
+${register}
+${declare}`;
 
-  await fs.writeFile(path.join(outDir, "clients.ts"), data, "utf8");
 
-  try {
-    await execAsync(`npx prettier --write ${outDir}/clients.ts`);
-  } catch {}
+  await fs.writeFile(path.join(outDir, "clients.ts"), clients, "utf8");
 }
 
 export function qwikGrpc(options?: QwikGrpcOptions): Plugin {
   const {
     protoPath = "proto",
-    outDir = "src/.qwik-grpc",
+    outDir = "src/.grpc",
     bufFlags = "",
     clean = true,
   } = options || {};
@@ -237,7 +231,8 @@ export function qwikGrpc(options?: QwikGrpcOptions): Plugin {
     name: "vite-plugin-qwik-grpc",
     enforce: "pre",
 
-    async configResolved() {
+    // Must use config hook to build before Qwik
+    async config() {
       if (!isGenerated) {
         isGenerated = true;
         await generate();

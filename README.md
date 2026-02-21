@@ -38,7 +38,7 @@ Register your gRPC clients in a plugin file `src/plugin@grpc.ts`:
 import type { RequestEvent, RequestHandler } from "@builder.io/qwik-city";
 import { Interceptor } from "@connectrpc/connect";
 import { createConnectTransport } from "@connectrpc/connect-web";
-import { registerGrpcClients } from "~/.qwik-grpc/clients";
+import { registerGrpcClients } from "~/.grpc/clients";
 
 // OPTIONAL: Add an auth interceptor to capture tokens from the Qwik RequestEvent
 // which can be passed to the gRPC server

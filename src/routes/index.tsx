@@ -1,9 +1,9 @@
 import { component$ } from "@builder.io/qwik";
 import { routeLoader$, type DocumentHead } from "@builder.io/qwik-city";
-import { grpc } from "~/.qwik-grpc/clients";
 
 export const useLoader = routeLoader$(async (ev) => {
-  const result = await grpc(ev).bar.say({ sentence: "Success!" });
+  const result = await ev.grpc.bar.say({ sentence: "Success!" });
+  console.log(result)
 });
 
 export default component$(() => {
