@@ -80,11 +80,11 @@ You can now access the generated clients in a routeLoader$ or server$ function:
 
 ```ts
 export const useLoader = routeLoader$(async (ev) => {
-  const result = await grpc(ev).bar.say({ sentence: "Success!" });
+  const result = await ev.grpc.bar.say({ sentence: "Success!" });
 });
 
 export const serverFn = server$(function (ev) {
-  const result = await grpc(this).bar.say({ sentence: "Success!" });
+  const result = await this.grpc.bar.say({ sentence: "Success!" });
 });
 ```
 

@@ -136,7 +136,11 @@ async function getServices(
     }
 
     const name = match[1]; // e.g. "Foo"
-    const instanceName = name[0].toLowerCase() + name.slice(1); // e.g. "foo"
+    if (!name) {
+      throw new Error(`[qwikGrpc] No service name found in ${filePath}`);
+    }
+
+    const instanceName = name[0]!.toLowerCase() + name.slice(1); // e.g. "foo"
     const serviceName = `${name}Service`; // e.g. "FooService"
     const relPath =
       "./" +
